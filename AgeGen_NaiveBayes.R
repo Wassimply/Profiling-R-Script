@@ -2,8 +2,8 @@
 ####################_CONSTANTS_####################
 postsPath <- "/Users/Mehdi/Desktop/ML/Project/data/training/text/"
 profPath <- "/Users/Mehdi/Desktop/ML/Project/data/training/profile/profile.csv"
-bagOfWordsPath <- "/Users/Mehdi/Desktop/ML/Project/bagOfWords.txt"
-modelsPath <- "/Users/Mehdi/Desktop/ML/Project/"
+bagOfWordsPath <- "/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/bagOfWords.txt"
+modelsPath <- "/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/"
 trainingLength <- 7000 #75% of users
 
 ####################_FUNCTIONS_####################
@@ -118,8 +118,6 @@ classifyPost <- function(filePath, model) {
   post <- gsub("[[:punct:]]", " ", post)
   post <- tolower(post)
   
-  wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
-  
   counts <- countWordsInVector(wordsBag, post)
   countLst <- as.list(counts)
   names(countLst) <- wordsBag
@@ -130,21 +128,38 @@ classifyPost <- function(filePath, model) {
 ####################_MAIN PART OF SCRIPT_####################
 
 library(e1071)
+wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
 user.profiles <- readUserProfiles()[1:trainingLength, ]
 
 frequencyTable <- createFrequencyTable(user.profiles)
 
+frequencyTable <- read.csv("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/frequencyTable.csv", header = T)
 genderModel <- createGenderModel(frequencyTable)
 ageModel <- createAgeModel(frequencyTable)
 
 ####################_TEST AREA_####################
-test.users <- readUserProfiles()[9000:9010, ]
-for(i in 1:2) {
-  test.user <- test.users[i, ]
-  print(paste(test.user$age, ",", test.user$gender))
-  path <- paste(postsPath, test.user$userid, ".txt", sep = "")
-  print(classifyPost(path, genderModel))
-  print(classifyPost(path, ageModel))
+
+#readModels from file
+ageModel <- readRDS("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/ageBayesModel.rds")
+genderModel <- readRDS("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/genderBayesModel.rds")
+
+test.users <- readUserProfiles()[7001:9500, ]
+predictedAge <- c()
+predictedGender <- c()
+
+for(i in 1:50) {
+  sample <- test.users[i,]
+  
+  #use the path where users' posts are located
+  path <- paste(postsPath, sample$userid, ".txt", sep = "")
+  
+  #actualAge <- sample$age
+  predictedAge <- c(classifyPost(path, ageModel), predictedAge)
+  
+  
+  #actualGender <- sample$gender
+  predictedGender <- c(classifyPost(path, genderModel), predictedGender)
 }
 
-
+cmpAge <- rbind(test.users$age[50:1], predictedAge)
+cmpGend <- rbind(test.users$gender, predictedGender)
