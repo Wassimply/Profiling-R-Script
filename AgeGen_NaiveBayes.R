@@ -137,7 +137,7 @@ createAgeModel <- function(featuresTbl, name) {
 library(e1071)
 wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
 user.profiles <- readUserProfiles()[1:trainingLength, ]
-frequencyTable <- createFrequencyTable(user.profiles$userid)
+#frequencyTable <- createFrequencyTable(user.profiles$userid)
 
 liwcTable <- readLIWC(user.profiles)
 frequencyTable <- read.csv(paste(modelsPath,"frequencyTable.csv",sep=""))
