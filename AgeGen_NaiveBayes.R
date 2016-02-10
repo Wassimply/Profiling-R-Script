@@ -17,6 +17,21 @@ readUserProfiles <- function() {
   return(profile)
 }
 
+#reads LIWC, sorts it to match user profiles and removes irrelevant columns
+readLIWC <- function (profiles) {
+  data <- read.csv(paste(modelsPath, "LIWC.csv", sep = ""), header=T)
+  # frequencyTable <- read.csv(paste(modelsPath,"frequencyTable.csv",sep=""))
+  
+  #order the liwc to match with userProfile 
+  data <- data[match(profiles$userid, data$userId), ]
+  
+  #remove repeatitive and irrelevant columns 
+  col.to.remove <- colnames(profiles)
+  col.to.remove <- c(col.to.remove, "userId")
+  data <- data[, !(names(data) %in% col.to.remove)]
+  
+  return (data)
+}
 
 #read post of a user, filters the post and converts it to lowercase
 readUserPost <- function(userId) {
@@ -29,7 +44,7 @@ readUserPost <- function(userId) {
 }
 
 #couts the frequency of words in a post using bag-of-words
-countWordsInVector_old <- function(bagOfWords, post) {
+countWordsInVector_old <- function(post) {
   counts <- c();
   
   post.tokens <- strsplit(post, " ")[[1]]
@@ -53,14 +68,18 @@ countWordsInVector <- function(bagOfWords, post) {
   
   post.tokens <- strsplit(post, " ")[[1]]
   
-  #changes the token vector of post to frequency table of the post
-  tokens.table <- table(post.tokens)
+  filtered <- post.tokens[(post.tokens %in% bagOfWords)]
+  
+  #to avoid NA values bag-of-words is added and then
+  #subtracted from freqTbl
+  combined <- c(filtered, bagOfWords)
+  freqsTbl <- table(combined) - 1
   
   #count the occurance of the bagOfWord
-  tokens <- names(tokens.table)
-  counts <- match(bagOfWords, tokens, nomatch = 0)
+  tokens <- names(freqsTbl)
+  countsTbl <- freqsTbl[match(wordsBag, tokens)]
   
-  return (counts)
+  return (countsTbl)
 }
 
 #generates the frequency table of all posts and saves a copy in model's folder
@@ -83,7 +102,7 @@ createFrequencyTable <- function (userIds) {
 }
 
 #generates the naive bayes model to predict gender
-createGenderModel <- function(featuresTbl) { 
+createGenderModel <- function(featuresTbl, name) { 
   
   gender <- user.profiles$gender
   
@@ -92,13 +111,13 @@ createGenderModel <- function(featuresTbl) {
   #gender.training.data$gender <- as.factor(gender.training.data$gender)
   model <- naiveBayes(gender.training.data[,-1], gender.training.data[,1])
   
-  saveRDS(model,paste(modelsPath,"genderBayesModel.rds", sep=""))
+  saveRDS(model,paste(modelsPath, name, ".rds", sep=""))
   
   return (model)
 }
 
 #generates and saves the naive bayes model to predict age
-createAgeModel <- function(featuresTbl) { 
+createAgeModel <- function(featuresTbl, name) { 
   
   age <- cut(user.profiles$age, 
              breaks = c(-Inf, 24, 34, 49, Inf), 
@@ -107,45 +126,27 @@ createAgeModel <- function(featuresTbl) {
   tdata.age <- cbind.data.frame(age, featuresTbl)
   model <- naiveBayes(tdata.age[,-1], tdata.age[,1])
   
-  saveRDS(model,paste(modelsPath,"ageBayesModel.rds", sep = ""))
+  saveRDS(model,paste(modelsPath, name, ".rds", sep = ""))
   
   return (model)
 }
 
-#classifies a user given file path of user's post and a predictive model
-classifyPost <- function(filePath, model) {
-  post <- scan(filePath, what = "character", sep = "\n")
-  post <- gsub("[[:punct:]]", " ", post)
-  post <- tolower(post)
-  
-  counts <- countWordsInVector(wordsBag, post)
-  countLst <- as.list(counts)
-  names(countLst) <- wordsBag
-  
-  return (predict(model, countLst))
-}
-
 ####################_MAIN PART OF SCRIPT_####################
 
-#frequencyTable <- createFrequencyTable(user.profiles)
-#allFeatures <- merge(user.profiles, liwcTable, by.x = "userid", by.y = "userId")
 
 library(e1071)
 wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
 user.profiles <- readUserProfiles()[1:trainingLength, ]
-liwcTable <- read.csv(paste(modelsPath, "LIWC.csv", sep = ""), header=T)
+frequencyTable <- createFrequencyTable(user.profiles$userid)
+
+liwcTable <- readLIWC(user.profiles)
 frequencyTable <- read.csv(paste(modelsPath,"frequencyTable.csv",sep=""))
 
-#order the liwc to match with userProfile 
-liwcTable <- liwcTable[match(user.profiles$userid, liwcTable$userId), ]
-
 #remove repeatitive and irrelevant columns 
-col.to.remove <- colnames(user.profiles)
-liwcTable <- liwcTable[, !(names(liwcTable) %in% col.to.remove)]
 frequencyTable <- frequencyTable[, !(names(frequencyTable) %in% c("X", "X0"))]
 
 #attach two data frames together
 features.df <- cbind.data.frame(frequencyTable, liwcTable)
 
-genderModel <- createGenderModel(features.df)
-ageModel <- createAgeModel(features.df)
+genderModel <- createGenderModel(features.df, "gender_mixed_model")
+ageModel <- createAgeModel(features.df, "age_midex_model")
