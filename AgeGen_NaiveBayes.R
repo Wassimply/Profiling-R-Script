@@ -83,11 +83,11 @@ createFrequencyTable <- function (userIds) {
 }
 
 #generates the naive bayes model to predict gender
-createGenderModel <- function(frequencyTbl) { 
+createGenderModel <- function(featuresTbl) { 
   
   gender <- user.profiles$gender
   
-  gender.training.data <- cbind.data.frame(gender, frequencyTbl)
+  gender.training.data <- cbind.data.frame(gender, featuresTbl)
   
   #gender.training.data$gender <- as.factor(gender.training.data$gender)
   model <- naiveBayes(gender.training.data[,-1], gender.training.data[,1])
@@ -98,13 +98,13 @@ createGenderModel <- function(frequencyTbl) {
 }
 
 #generates and saves the naive bayes model to predict age
-createAgeModel <- function(frequencyTbl) { 
+createAgeModel <- function(featuresTbl) { 
   
   age <- cut(user.profiles$age, 
              breaks = c(-Inf, 24, 34, 49, Inf), 
              labels = c("xx-24", "25-34", "35-49", "50-xx"), 
              right = T)
-  tdata.age <- cbind.data.frame(age, frequencyTbl)
+  tdata.age <- cbind.data.frame(age, featuresTbl)
   model <- naiveBayes(tdata.age[,-1], tdata.age[,1])
   
   saveRDS(model,paste(modelsPath,"ageBayesModel.rds", sep = ""))
