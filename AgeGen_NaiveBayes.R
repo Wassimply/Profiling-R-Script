@@ -64,13 +64,13 @@ countWordsInVector <- function(bagOfWords, post) {
 }
 
 #generates the frequency table of all posts and saves a copy in model's folder
-createFrequencyTable <- function (profiles) {
+createFrequencyTable <- function (userIds) {
 
   wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
   
   featuresCount <- c()
-  for(i in 1 : nrow(profiles)) {
-    post <- readUserPost(profiles[i,2])
+  for(i in 1 : length(userIds)) {
+    post <- readUserPost(userIds[i])
     counts <- countWordsInVector(wordsBag, post)
     featuresCount <- rbind(featuresCount, counts)
   }
@@ -90,7 +90,7 @@ createGenderModel <- function(frequencyTbl) {
   gender.training.data <- cbind.data.frame(gender, frequencyTbl)
   
   #gender.training.data$gender <- as.factor(gender.training.data$gender)
-  model <- naiveBayes(gender.training.data[,-1], gender.training.data$gender)
+  model <- naiveBayes(gender.training.data[,-1], gender.training.data[,1])
   
   saveRDS(model,paste(modelsPath,"genderBayesModel.rds", sep=""))
   
@@ -105,7 +105,7 @@ createAgeModel <- function(frequencyTbl) {
              labels = c("xx-24", "25-34", "35-49", "50-xx"), 
              right = T)
   tdata.age <- cbind.data.frame(age, frequencyTbl)
-  model <- naiveBayes(tdata.age[,-1], tdata.age$age)
+  model <- naiveBayes(tdata.age[,-1], tdata.age[,1])
   
   saveRDS(model,paste(modelsPath,"ageBayesModel.rds", sep = ""))
   
@@ -127,39 +127,25 @@ classifyPost <- function(filePath, model) {
 
 ####################_MAIN PART OF SCRIPT_####################
 
+#frequencyTable <- createFrequencyTable(user.profiles)
+#allFeatures <- merge(user.profiles, liwcTable, by.x = "userid", by.y = "userId")
+
 library(e1071)
 wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
 user.profiles <- readUserProfiles()[1:trainingLength, ]
+liwcTable <- read.csv(paste(modelsPath, "LIWC.csv", sep = ""), header=T)
+frequencyTable <- read.csv(paste(modelsPath,"frequencyTable.csv",sep=""))
 
-frequencyTable <- createFrequencyTable(user.profiles)
+#order the liwc to match with userProfile 
+liwcTable <- liwcTable[match(user.profiles$userid, liwcTable$userId), ]
 
-frequencyTable <- read.csv("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/frequencyTable.csv", header = T)
-genderModel <- createGenderModel(frequencyTable)
-ageModel <- createAgeModel(frequencyTable)
+#remove repeatitive and irrelevant columns 
+col.to.remove <- colnames(user.profiles)
+liwcTable <- liwcTable[, !(names(liwcTable) %in% col.to.remove)]
+frequencyTable <- frequencyTable[, !(names(frequencyTable) %in% c("X", "X0"))]
 
-####################_TEST AREA_####################
+#attach two data frames together
+features.df <- cbind.data.frame(frequencyTable, liwcTable)
 
-#readModels from file
-ageModel <- readRDS("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/ageBayesModel.rds")
-genderModel <- readRDS("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/genderBayesModel.rds")
-
-test.users <- readUserProfiles()[7001:9500, ]
-predictedAge <- c()
-predictedGender <- c()
-
-for(i in 1:50) {
-  sample <- test.users[i,]
-  
-  #use the path where users' posts are located
-  path <- paste(postsPath, sample$userid, ".txt", sep = "")
-  
-  #actualAge <- sample$age
-  predictedAge <- c(classifyPost(path, ageModel), predictedAge)
-  
-  
-  #actualGender <- sample$gender
-  predictedGender <- c(classifyPost(path, genderModel), predictedGender)
-}
-
-cmpAge <- rbind(test.users$age[50:1], predictedAge)
-cmpGend <- rbind(test.users$gender, predictedGender)
+genderModel <- createGenderModel(features.df)
+ageModel <- createAgeModel(features.df)
