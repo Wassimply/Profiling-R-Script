@@ -18,8 +18,8 @@ readUserProfiles <- function() {
 }
 
 #reads LIWC, sorts it to match user profiles and removes irrelevant columns
-readLIWC <- function (profiles) {
-  data <- read.csv(paste(modelsPath, "LIWC.csv", sep = ""), header=T)
+readLIWC <- function (path, profiles) {
+  data <- read.csv(path, header=T)
   # frequencyTable <- read.csv(paste(modelsPath,"frequencyTable.csv",sep=""))
   
   #order the liwc to match with userProfile 
@@ -43,17 +43,23 @@ readUserPost <- function(userId) {
 }
 
 #couts the frequency of words in a post using bag-of-words
-countWordsInVector <- function(post) {
+countWordsInVector <- function(bagOfWords, post) {
+  counts <- c();
   
   post.tokens <- strsplit(post, " ")[[1]]
-  filtered <- post.tokens[(post.tokens %in% wordsBag)]
   
-  combined <- c(filtered, wordsBag)
+  filtered <- post.tokens[(post.tokens %in% bagOfWords)]
+  
+  #to avoid NA values bag-of-words is added and then
+  #subtracted from freqTbl
+  combined <- c(filtered, bagOfWords)
   freqsTbl <- table(combined) - 1
-  tokens <- names(freqsTbl)
-  counts <- freqsTbl[match(wordsBag, tokens)]
   
-  return (counts)
+  #count the occurance of the bagOfWord
+  tokens <- names(freqsTbl)
+  countsTbl <- freqsTbl[match(wordsBag, tokens)]
+  
+  return (countsTbl)
 }
 
 #classifies a user given file path of user's post and a predictive model
@@ -98,20 +104,22 @@ library(e1071)
 ageModel <- readRDS("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/age_mixed_model.rds")
 genderModel <- readRDS("/Users/Mehdi/Desktop/ML/Project/Profiling-R-Script/gender_mixed_model.rds")
 wordsBag <- scan(bagOfWordsPath, what = "character", sep="\n")
-test.users <- readUserProfiles()[8000:9500, ]
+test.users <- readUserProfiles()[7001:9500, ]
 
+liwc.path <- paste(modelsPath, "LIWC.csv", sep = "")
 liwcTable <- readLIWC(test.users)
 
 ageCorrect = 0
 genderCorrect = 0
-for(i in 1:nrow(test.users)) {
+for(i in 1:2){#nrow(test.users)) {
   sample <- test.users[i,]
   
   #use the path where users' posts are located
   path <- paste(postsPath, sample$userid, ".txt", sep = "")
   
   actualAge <- sample$age
-  pridictedAge <- classifyByPostAndLIWC(sample$userid, path, ageModel)
+  predictedAge <- classifyByPostAndLIWC(sample$userid, path, ageModel)
+  print(paste(actualAge, " ", predictedAge))
   if (actualAge == pridictedAge){
     ageCorrect = ageCorrect + 1
   }
@@ -126,21 +134,3 @@ print(ageCorrect)
 print(genderCorrect)
 
 #####################################################
-
-sample <- test.users[1,]
-filePath <- paste(postsPath, sample$userid, ".txt", sep = "")
-post <- scan(filePath, what = "character", sep = "\n")
-post <- gsub("[[:punct:]]", " ", post)
-post <- tolower(post)
-
-post.tokens <- strsplit(post, " ")[[1]]
-filtered <- post.tokens[(post.tokens %in% wordsBag)]
-
-combined <- c(filtered, wordsBag)
-freqsTbl <- table(combined) - 1
-tokens <- names(freqsTbl)
-counts <- freqsTbl[match(wordsBag, tokens)]
-
-liwc <- liwcTable[liwcTable$userId == sample$userid, ]
-
-freq_liwc <- cbind.data.frame(frequencies, liwc)

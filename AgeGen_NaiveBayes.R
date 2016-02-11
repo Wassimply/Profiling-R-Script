@@ -143,10 +143,14 @@ liwcTable <- readLIWC(user.profiles)
 frequencyTable <- read.csv(paste(modelsPath,"frequencyTable.csv",sep=""))
 
 #remove repeatitive and irrelevant columns 
-frequencyTable <- frequencyTable[, !(names(frequencyTable) %in% c("X", "X0"))]
+frequencyTable <- frequencyTable[, !(names(frequencyTable) %in% c("X"))]
 
 #attach two data frames together
 features.df <- cbind.data.frame(frequencyTable, liwcTable)
 
 genderModel <- createGenderModel(features.df, "gender_mixed_model")
-ageModel <- createAgeModel(features.df, "age_midex_model")
+ageModel <- createAgeModel(features.df, "age_mixed_model")
+
+ageModel$tables$ü.....<- NULL
+ageModel$tables$ü.....<- NULL
+
